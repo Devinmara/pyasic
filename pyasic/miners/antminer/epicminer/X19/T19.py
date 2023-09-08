@@ -14,10 +14,11 @@
 #  limitations under the License.                                              -
 # ------------------------------------------------------------------------------
 
-from .bmminer import *
-from .bosminer import *
-from .cgminer import *
-from .hiveon import *
-from .luxos import *
-from .vnish import *
-from .epicminer import *
+from pyasic.miners.backends import EPICMiner
+from pyasic.miners.types import T19
+
+# noqa - Ignore access to _module
+
+
+class EPICT19(EPICMiner, T19):
+    pass

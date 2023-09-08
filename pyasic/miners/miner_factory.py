@@ -37,12 +37,14 @@ from pyasic.miners.backends import (
     Hiveon,
     LUXMiner,
     VNish,
+    EPICMiner,
 )
 from pyasic.miners.base import AnyMiner
 from pyasic.miners.goldshell import *
 from pyasic.miners.innosilicon import *
 from pyasic.miners.unknown import UnknownMiner
 from pyasic.miners.whatsminer import *
+
 
 TIMEOUT = 20
 RETRIES = 3
@@ -58,6 +60,7 @@ class MinerTypes(enum.Enum):
     VNISH = 6
     HIVEON = 7
     LUX_OS = 8
+    EPICMiner = 9
 
 
 MINER_CLASSES = {
@@ -344,6 +347,10 @@ MINER_CLASSES = {
         None: LUXMiner,
         "ANTMINER S9": LUXMinerS9,
     },
+    MinerTypes.EPICMiner: {
+        None: EPICMiner,
+        "AntMiner S19 XP": EPICS19XP,
+    },
 }
 
 
@@ -428,6 +435,7 @@ class MinerFactory:
                 MinerTypes.VNISH: self.get_miner_model_vnish,
                 MinerTypes.HIVEON: self.get_miner_model_hiveon,
                 MinerTypes.LUX_OS: self.get_miner_model_luxos,
+                MinerTypes.EPICMiner: self.get_miner_model_epicminer,
             }
             fn = miner_model_fns.get(miner_type)
 
@@ -449,12 +457,13 @@ class MinerFactory:
     async def _get_miner_type(self, ip: str):
         tasks = [
             asyncio.create_task(self._get_miner_web(ip)),
+            asyncio.create_task(self._get_miner_web(ip, port=4028)),
             asyncio.create_task(self._get_miner_socket(ip)),
         ]
 
         return await concurrent_get_first_result(tasks, lambda x: x is not None)
 
-    async def _get_miner_web(self, ip: str):
+    async def _get_miner_web(self, ip: str, port=0):
         urls = [f"http://{ip}/", f"https://{ip}/"]
         async with httpx.AsyncClient(verify=False) as session:
             tasks = [asyncio.create_task(self._web_ping(session, url)) for url in urls]
@@ -464,6 +473,7 @@ class MinerFactory:
             )
             if text is not None:
                 return self._parse_web_type(text, resp)
+    
 
     @staticmethod
     async def _web_ping(
@@ -496,6 +506,8 @@ class MinerFactory:
             return MinerTypes.AVALONMINER
         if "DragonMint" in web_text:
             return MinerTypes.INNOSILICON
+        if "Miner Web Dashboard" in web_text:
+            return MinerTypes.EPICMiner
 
     async def _get_miner_socket(self, ip: str):
         commands = ["version", "devdetails"]
@@ -845,6 +857,21 @@ class MinerFactory:
             if " (" in miner_model:
                 split_miner_model = miner_model.split(" (")
                 miner_model = split_miner_model[0]
+            return miner_model
+        except (TypeError, LookupError):
+            pass
+
+
+    async def get_miner_model_epicminer(self, ip: str):
+        # last resort, this is slow
+        auth = httpx.DigestAuth("root", "root")
+        web_json_data = await self.send_web_command(
+            f'{ip}:4028', "/capabilities"##, auth=auth
+        )
+
+        try:
+            miner_model = web_json_data["Model"].upper()
+
             return miner_model
         except (TypeError, LookupError):
             pass

@@ -239,9 +239,13 @@ class BMMiner(BaseMiner):
 
                     for i in range(board_offset, board_offset + 4):
                         key = f'chain_acs{i}'
-                        if boards[1][key] != '':
-                            real_slots.append(i)
-
+                        key2 = f'chain_rate{i}'
+                        try:
+                            if boards[1][key] != '' or boards[1][key2] != '':
+                                real_slots.append(i)
+                        except LookupError:
+                            break
+                    
                     if len(real_slots) < 3:
                         real_slots = list(range(board_offset, board_offset + self.ideal_hashboards))
 
@@ -273,7 +277,7 @@ class BMMiner(BaseMiner):
                 pass
 
         return hashboards
-
+    
     async def get_env_temp(self) -> Optional[float]:
         return None
 

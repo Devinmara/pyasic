@@ -35,6 +35,7 @@ class PyasicSettings(metaclass=Singleton):
     global_bosminer_password = "root"
     global_vnish_password = "admin"
     global_goldshell_password = "123456789"
+    global_epicminer_password = "root"
 
     debug: bool = False
     logfile: bool = False

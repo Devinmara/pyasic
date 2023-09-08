@@ -25,3 +25,4 @@ from .hiveon import Hiveon
 from .luxminer import LUXMiner
 from .vnish import VNish
 from .whatsminer import M2X, M3X, M5X
+from .epicminer import EPICMiner
