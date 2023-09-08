@@ -239,9 +239,8 @@ class BMMiner(BaseMiner):
 
                     for i in range(board_offset, board_offset + 4):
                         key = f'chain_acs{i}'
-                        key2 = f'chain_rate{i}'
                         try:
-                            if boards[1][key] != '' or boards[1][key2] != '':
+                            if boards[1][key] != '':
                                 real_slots.append(i)
                         except LookupError:
                             break
