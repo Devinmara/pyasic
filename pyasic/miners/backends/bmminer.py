@@ -196,6 +196,7 @@ class BMMiner(BaseMiner):
 
     async def get_hostname(self) -> Optional[str]:
         hn = await self.send_ssh_command("cat /proc/sys/kernel/hostname")
+        
         return hn
 
     async def get_hashrate(self, api_summary: dict = None) -> Optional[float]:
@@ -379,7 +380,12 @@ class BMMiner(BaseMiner):
     async def get_uptime(self, api_stats: dict = None) -> Optional[int]:
         if not api_stats:
             try:
-                api_stats = await self.web.get_miner_conf()
+                api_stats = await self.api.get_miner_conf()
+            except AttributeError:
+                try:
+                    api_stats = await self.api.config()
+                except Exception:
+                    pass
             except APIError:
                 pass
 
@@ -387,4 +393,9 @@ class BMMiner(BaseMiner):
             try:
                 return int(api_stats["STATS"][1]["Elapsed"])
             except LookupError:
+                try:
+                    return int(api_stats["SUMMARY"][0]["Elapsed"])
+                except Exception:
+                    pass
+            except Exception as ex:
                 pass
