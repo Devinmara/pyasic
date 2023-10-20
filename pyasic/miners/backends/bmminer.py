@@ -24,13 +24,15 @@ from pyasic.data import Fan, HashBoard
 from pyasic.data.error_codes import MinerErrorData
 from pyasic.errors import APIError
 from pyasic.miners.base import BaseMiner
+from pyasic.web.bmminer import BMminerModernWebAPI
 
 BMMINER_DATA_LOC = {
-    "mac": {"cmd": "get_mac", "kwargs": {}},
-    "model": {"cmd": "get_model", "kwargs": {}},
+    "mac": {"cmd": "get_mac", "kwargs": {"web_system_info": {"web": "web_system_info"}}},
+    "model": {"cmd": "get_model", "kwargs": {"api_stats": {"api": "stats"}}},
+    "make": {"cmd": "get_make", "kwargs": {"api_stats": {"api": "stats"}}},
     "api_ver": {"cmd": "get_api_ver", "kwargs": {"api_version": {"api": "version"}}},
     "fw_ver": {"cmd": "get_fw_ver", "kwargs": {"api_version": {"api": "version"}}},
-    "hostname": {"cmd": "get_hostname", "kwargs": {}},
+    "hostname": {"cmd": "get_hostname", "kwargs": {"web_system_info": {"web": "web_system_info"}}},
     "hashrate": {"cmd": "get_hashrate", "kwargs": {"api_summary": {"api": "summary"}}},
     "nominal_hashrate": {
         "cmd": "get_nominal_hashrate",
@@ -61,6 +63,7 @@ class BMMiner(BaseMiner):
         # interfaces
         self.api = BMMinerAPI(ip, api_ver)
 
+        self.web = BMminerModernWebAPI(ip)
         # static data
         self.api_type = "BMMiner"
         # data gathering locations
@@ -140,9 +143,51 @@ class BMMiner(BaseMiner):
     ### DATA GATHERING FUNCTIONS (get_{some_data}) ###
     ##################################################
 
-    async def get_mac(self) -> str:
-        return "00:00:00:00:00:00"
-
+    async def get_mac(self, web_system_info: dict = None) -> str:
+        mac = None
+        if not web_system_info:
+            try:
+                web_system_info = await self.web.get_system_info()
+            except Exception:
+                pass
+        if web_system_info:
+            try:
+                mac = web_system_info['macaddr']
+            except Exception:
+                pass
+        return mac
+    
+    async def get_model(self, api_stats: dict = None) -> str:
+        model = None
+        if not api_stats:
+            try:
+                api_stats = await self.api.stats()
+            except APIError:
+                pass
+        if api_stats:
+            try:
+                model = api_stats['STATS'][0]['Model']
+                model = model.replace('Antminer ', '')
+            except Exception:
+                pass
+        return model
+    
+    async def get_make(self, api_stats: dict = None):
+        make = None
+        if not api_stats:
+            try:
+                api_stats = await self.api.stats()
+            except APIError:
+                pass
+        if api_stats:
+            try:
+                make = api_stats['STATS'][0]['Model']
+                head, sep, tail = make.partition(' ')
+                make = head
+            except:
+                pass
+        return make
+    
     async def get_api_ver(self, api_version: dict = None) -> Optional[str]:
         # Check to see if the version info is already cached
         if self.api_ver:
@@ -194,9 +239,18 @@ class BMMiner(BaseMiner):
     async def get_fan_psu(self):
         return None
 
-    async def get_hostname(self) -> Optional[str]:
-        hn = await self.send_ssh_command("cat /proc/sys/kernel/hostname")
-        
+    async def get_hostname(self, web_system_info: dict = None) -> Optional[str]:
+        hn = None
+        if not web_system_info:
+            try:
+                web_system_info = await self.web.get_system_info()
+            except Exception:
+                pass
+        if web_system_info:
+            try:
+                hn = web_system_info['hostname']
+            except Exception:
+                pass
         return hn
 
     async def get_hashrate(self, api_summary: dict = None) -> Optional[float]:
